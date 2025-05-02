@@ -1,6 +1,7 @@
 package ui;
 
 import java.awt.*;
+import java.time.DayOfWeek;
 import java.time.format.DateTimeFormatter;
 import java.time.format.TextStyle;
 import java.util.Locale;
@@ -49,13 +50,7 @@ public class VentanaCronogramaGuardado extends JFrame {
         };
 
         for (DiaTrabajo dia : semana.getDias()) {
-            String diaStr = dia.getFecha().getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("es", "ES")) +
-                           " " + dia.getFecha().format(DateTimeFormatter.ofPattern("d/M"));
-            
-            String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
-            String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
-
-            modelo.addRow(new Object[]{diaStr, manana, tarde});
+            modelo.addRow(crearFilaTabla(dia));
         }
 
         JTable tabla = new JTable(modelo);
@@ -91,6 +86,21 @@ public class VentanaCronogramaGuardado extends JFrame {
         add(scrollPane, BorderLayout.CENTER);
 
         setVisible(true);
+    }
+
+    private Object[] crearFilaTabla(DiaTrabajo dia) {
+        String diaStr = dia.getFecha().getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("es", "ES")) +
+                       " " + dia.getFecha().format(DateTimeFormatter.ofPattern("d/M"));
+        
+        if (dia.getFecha().getDayOfWeek() == DayOfWeek.SUNDAY) {
+            // Para domingo, mostrar trabajadores solo en la primera columna
+            String trabajadores = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            return new Object[]{diaStr, trabajadores, "-"};
+        } else {
+            String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
+            return new Object[]{diaStr, manana, tarde};
+        }
     }
 
     private String formatearTrabajadores(Set<Trabajador> trabajadores) {

@@ -5,12 +5,18 @@ import java.util.*;
 
 public class Semana {
     private List<DiaTrabajo> dias;
+    private LocalDate lunes;
 
     public Semana(LocalDate lunes) {
+        this.lunes = lunes;
         this.dias = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
             dias.add(new DiaTrabajo(lunes.plusDays(i)));
         }
+    }
+
+    public LocalDate getLunes() {
+        return this.lunes;
     }
 
     public List<DiaTrabajo> getDias() {

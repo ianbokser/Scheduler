@@ -1,6 +1,7 @@
 package model;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class DiaTrabajo {
     private LocalDate fecha;
@@ -23,6 +24,12 @@ public class DiaTrabajo {
 
     public Set<Trabajador> getTrabajadoresEnTurno(Turno turno) {
         return asignaciones.getOrDefault(turno, Collections.emptySet());
+    }
+
+    public Set<Trabajador> getTrabajadoresDelDia() {
+        return asignaciones.values().stream()
+                .flatMap(Set::stream)
+                .collect(Collectors.toSet());
     }
 
     public LocalDate getFecha() {
