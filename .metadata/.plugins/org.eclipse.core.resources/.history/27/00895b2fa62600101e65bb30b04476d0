@@ -1,0 +1,67 @@
+package service;
+
+import model.*;
+
+import java.time.DayOfWeek;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class AsignadorHorarios {
+
+    public static void asignarSemana(Semana semana, List<Trabajador> trabajadores) {
+        Map<Trabajador, Integer> contadorDias = new HashMap<>();
+        Set<Trabajador> trabajaronDomingoPasado = new HashSet<>();
+
+        // Inicializamos contador y buscamos historial
+        for (Trabajador t : trabajadores) {
+            contadorDias.put(t, 0);
+
+            // Mirar la semana anterior
+            for (Semana s : t.getHistorialSemanas()) {
+                for (DiaTrabajo d : s.getDias()) {
+                    if (d.getAsignaciones().containsValue(t)) {
+                        contadorDias.put(t, contadorDias.get(t) + 1);
+                        if (d.getFecha().getDayOfWeek() == DayOfWeek.SUNDAY) {
+                            trabajaronDomingoPasado.add(t);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Guardamos quien trabaja domingo esta semana para dar franco el lunes siguiente
+        Set<Trabajador> trabajanDomingoEstaSemana = new HashSet<>();
+
+        for (DiaTrabajo dia : semana.getDias()) {
+            DayOfWeek diaSemana = dia.getFecha().getDayOfWeek();
+
+            List<Turno> turnos = Arrays.asList(Turno.MANIANA, Turno.MANIANA, Turno.TARDE, Turno.TARDE);
+
+            for (Turno turno : turnos) {
+                Trabajador elegido = trabajadores.stream()
+                        .filter(t -> !t.pidioFranco(dia.getFecha()))
+                        .filter(t -> !(diaSemana == DayOfWeek.SUNDAY && trabajaronDomingoPasado.contains(t)))
+                        .filter(t -> !(diaSemana == DayOfWeek.MONDAY && trabajanDomingoEstaSemana.contains(t)))
+                        .filter(t -> contadorDias.get(t) < 6) // Para garantizar al menos 1 franco
+                        .sorted(Comparator.comparingInt(contadorDias::get))
+                        .filter(t -> !dia.getAsignaciones().containsValue(t)) // no repetir turno el mismo día
+                        .findFirst()
+                        .orElse(null);
+
+                if (elegido != null) {
+                    dia.asignar(turno, elegido);
+                    contadorDias.put(elegido, contadorDias.get(elegido) + 1);
+
+                    if (diaSemana == DayOfWeek.SUNDAY) {
+                        trabajanDomingoEstaSemana.add(elegido);
+                    }
+                }
+            }
+        }
+
+        // Agregar la semana generada al historial de cada trabajador
+        for (Trabajador t : trabajadores) {
+            t.agregarSemana(semana);
+        }
+    }
+}

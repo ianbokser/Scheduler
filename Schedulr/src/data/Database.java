@@ -1,0 +1,187 @@
+package data;
+
+import model.DiaTrabajo;
+import model.Semana;
+import model.Trabajador;
+import model.Turno;
+
+import java.sql.*;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+public class Database {
+    private static final String DB_URL = "jdbc:h2:./trabajadoresDB";
+    private static Connection connection;
+
+    // Conectar e inicializar tabla
+    public static void conectar() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            connection = DriverManager.getConnection(DB_URL, "sa", "");
+            inicializarTablas();
+        }
+    }
+
+    private static void inicializarTablas() throws SQLException {
+        String sql = """
+            CREATE TABLE IF NOT EXISTS trabajadores (
+                id IDENTITY PRIMARY KEY,
+                nombre VARCHAR(100) NOT NULL UNIQUE
+            );
+            CREATE TABLE IF NOT EXISTS semanas (
+			    id IDENTITY PRIMARY KEY,
+			    lunes DATE NOT NULL
+			);
+			
+			CREATE TABLE IF NOT EXISTS asignaciones (
+			    id IDENTITY PRIMARY KEY,
+			    fecha DATE NOT NULL,
+			    turno VARCHAR(10) NOT NULL,
+			    trabajador VARCHAR(100) NOT NULL,
+			    FOREIGN KEY (trabajador) REFERENCES trabajadores(nombre)
+			);
+
+        """;
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(sql);
+        }
+        
+    }
+
+    // Obtener todos los trabajadores
+    public static List<Trabajador> obtenerTrabajadores() throws SQLException {
+        List<Trabajador> lista = new ArrayList<>();
+        String sql = "SELECT * FROM trabajadores;";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                lista.add(new Trabajador(rs.getString("nombre")));
+            }
+        }
+        return lista;
+    }
+    
+    public static void guardarSemana(Semana semana) throws SQLException {
+        String insertSemana = "INSERT INTO semanas (lunes) VALUES (?)";
+        String insertAsignacion = "INSERT INTO asignaciones (fecha, turno, trabajador) VALUES (?, ?, ?)";
+
+        try (PreparedStatement psSemana = connection.prepareStatement(insertSemana, Statement.RETURN_GENERATED_KEYS);
+             PreparedStatement psAsig = connection.prepareStatement(insertAsignacion)) {
+
+            // Insertar semana y obtener ID
+            psSemana.setDate(1, Date.valueOf(semana.getDias().get(0).getFecha()));
+            psSemana.executeUpdate();
+
+            for (DiaTrabajo dia : semana.getDias()) {
+                for (Map.Entry<Turno, Set<Trabajador>> entrada : dia.getAsignaciones().entrySet()) {
+                    Turno turno = entrada.getKey();
+                    for (Trabajador t : entrada.getValue()) {
+                        psAsig.setDate(1, Date.valueOf(dia.getFecha()));
+                        psAsig.setString(2, turno.equals(Turno.MANIANA) ? "MANIANA" : "TARDE");
+                        psAsig.setString(3, t.getNombre());
+                        psAsig.addBatch();
+                    }
+                }
+            }
+            psAsig.executeBatch();
+        }
+    }
+    
+    public static List<Semana> obtenerSemanasGuardadas() throws SQLException {
+        List<Semana> semanas = new ArrayList<>();
+
+        String sqlSemanas = "SELECT lunes FROM semanas ORDER BY lunes DESC";
+        String sqlAsignaciones = "SELECT fecha, turno, trabajador FROM asignaciones WHERE fecha BETWEEN ? AND ?";
+
+        try (
+            PreparedStatement psSemanas = connection.prepareStatement(sqlSemanas);
+            ResultSet rsSemanas = psSemanas.executeQuery()
+        ) {
+            while (rsSemanas.next()) {
+                Date lunesDate = rsSemanas.getDate("lunes");
+                LocalDate lunes = lunesDate.toLocalDate();
+                Semana semana = new Semana(lunes);
+
+                // Buscar asignaciones para la semana
+                try (PreparedStatement psAsig = connection.prepareStatement(sqlAsignaciones)) {
+                    psAsig.setDate(1, Date.valueOf(lunes));
+                    psAsig.setDate(2, Date.valueOf(lunes.plusDays(6)));
+                    try (ResultSet rsAsig = psAsig.executeQuery()) {
+                        while (rsAsig.next()) {
+                            LocalDate fecha = rsAsig.getDate("fecha").toLocalDate();
+                            String turnoStr = rsAsig.getString("turno");
+                            String nombreTrabajador = rsAsig.getString("trabajador");
+
+                            Turno turno = turnoStr.equals("MANIANA") ? Turno.MANIANA : Turno.TARDE;
+                            Trabajador trabajador = new Trabajador(nombreTrabajador);
+
+                            DiaTrabajo dia = semana.getDia(fecha);
+                            if (dia != null) {
+                                dia.asignar(turno, trabajador);
+                            }
+                        }
+                    }
+                }
+                semanas.add(semana);
+            }
+        }
+
+        return semanas;
+    }
+
+
+
+    // Agregar trabajador
+    public static void agregarTrabajador(String nombre) throws SQLException {
+        String sql = "INSERT INTO trabajadores (nombre) VALUES (?);";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, nombre);
+            ps.executeUpdate();
+        }
+    }
+
+    // Eliminar trabajador
+    public static void eliminarTrabajador(String nombre) throws SQLException {
+        String sql = "DELETE FROM trabajadores WHERE nombre = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, nombre);
+            ps.executeUpdate();
+        }
+    }
+
+    public static void cerrar() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.close();
+        }
+    }
+    public static boolean semanaYaExiste(LocalDate lunes) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM semanas WHERE lunes = ?";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setDate(1, Date.valueOf(lunes));
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
+    public static void eliminarSemana(LocalDate lunes) throws SQLException {
+        String deleteAsignaciones = "DELETE FROM asignaciones WHERE fecha BETWEEN ? AND ?";
+        String deleteSemana = "DELETE FROM semanas WHERE lunes = ?";
+
+        try (PreparedStatement psAsig = connection.prepareStatement(deleteAsignaciones);
+             PreparedStatement psSemana = connection.prepareStatement(deleteSemana)) {
+
+            psAsig.setDate(1, Date.valueOf(lunes));
+            psAsig.setDate(2, Date.valueOf(lunes.plusDays(6)));
+            psAsig.executeUpdate();
+
+            psSemana.setDate(1, Date.valueOf(lunes));
+            psSemana.executeUpdate();
+        }
+    }
+
+}

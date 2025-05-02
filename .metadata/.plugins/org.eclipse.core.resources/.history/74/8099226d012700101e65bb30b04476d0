@@ -1,0 +1,102 @@
+import model.*;
+
+import java.time.LocalDate;
+import java.util.*;
+
+public class AsignadorHorarios {
+
+    private static final Random random = new Random();
+
+    public static void asignarSemana(Semana semana, List<Trabajador> trabajadores) {
+        List<Semana> historial;
+        try {
+            historial = data.Database.obtenerSemanasGuardadas();
+        } catch (Exception e) {
+            historial = new ArrayList<>();
+        }
+
+        Map<String, Integer> domingosPrevios = calcularDomingosPrevios(historial);
+        Map<String, Integer> repeticionesParejas = calcularRepeticiones(historial);
+
+        for (DiaTrabajo dia : semana.getDias()) {
+            Set<Trabajador> asignados = new HashSet<>();
+            for (Turno turno : Turno.values()) {
+                List<List<Trabajador>> posiblesParejas = generarParejasDisponibles(trabajadores, asignados);
+                posiblesParejas.sort(Comparator.comparingInt(p -> calcularPenalizacion(p, dia.getFecha(), domingosPrevios, repeticionesParejas)));
+
+                if (!posiblesParejas.isEmpty()) {
+                    List<Trabajador> mejorPareja = posiblesParejas.get(0);
+                    for (Trabajador t : mejorPareja) {
+                        dia.asignar(turno, t);
+                        asignados.add(t);
+                    }
+                }
+            }
+        }
+    }
+
+    private static List<List<Trabajador>> generarParejasDisponibles(List<Trabajador> trabajadores, Set<Trabajador> yaAsignados) {
+        List<List<Trabajador>> parejas = new ArrayList<>();
+        for (int i = 0; i < trabajadores.size(); i++) {
+            for (int j = i + 1; j < trabajadores.size(); j++) {
+                Trabajador a = trabajadores.get(i);
+                Trabajador b = trabajadores.get(j);
+                if (!yaAsignados.contains(a) && !yaAsignados.contains(b)) {
+                    parejas.add(List.of(a, b));
+                }
+            }
+        }
+        Collections.shuffle(parejas);
+        return parejas;
+    }
+
+    private static Map<String, Integer> calcularDomingosPrevios(List<Semana> historial) {
+        Map<String, Integer> domingos = new HashMap<>();
+        for (Semana s : historial) {
+            for (DiaTrabajo dia : s.getDias()) {
+                if (dia.getFecha().getDayOfWeek().getValue() == 7) { // Domingo
+                    for (Set<Trabajador> set : dia.getAsignaciones().values()) {
+                        for (Trabajador t : set) {
+                            domingos.put(t.getNombre(), domingos.getOrDefault(t.getNombre(), 0) + 1);
+                        }
+                    }
+                }
+            }
+        }
+        return domingos;
+    }
+
+    private static Map<String, Integer> calcularRepeticiones(List<Semana> historial) {
+        Map<String, Integer> repeticiones = new HashMap<>();
+        for (Semana semana : historial) {
+            for (DiaTrabajo dia : semana.getDias()) {
+                for (Set<Trabajador> pareja : dia.getAsignaciones().values()) {
+                    List<Trabajador> list = new ArrayList<>(pareja);
+                    if (list.size() == 2) {
+                        String key = generarKeyPareja(list.get(0), list.get(1));
+                        repeticiones.put(key, repeticiones.getOrDefault(key, 0) + 1);
+                    }
+                }
+            }
+        }
+        return repeticiones;
+    }
+
+    private static int calcularPenalizacion(List<Trabajador> pareja, LocalDate fecha, Map<String, Integer> domingos, Map<String, Integer> repeticiones) {
+        String key = generarKeyPareja(pareja.get(0), pareja.get(1));
+        int penalizacion = repeticiones.getOrDefault(key, 0) * 10;
+
+        if (fecha.getDayOfWeek().getValue() == 7) { // Domingo
+            for (Trabajador t : pareja) {
+                penalizacion += domingos.getOrDefault(t.getNombre(), 0) * 5;
+            }
+        }
+        return penalizacion;
+    }
+
+    private static String generarKeyPareja(Trabajador a, Trabajador b) {
+        return a.getNombre().compareTo(b.getNombre()) < 0
+                ? a.getNombre() + "|" + b.getNombre()
+                : b.getNombre() + "|" + a.getNombre();
+    }
+}

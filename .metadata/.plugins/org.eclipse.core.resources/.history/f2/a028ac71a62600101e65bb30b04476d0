@@ -1,0 +1,36 @@
+package model;
+import java.time.LocalDate;
+import java.util.*;
+
+public class DiaTrabajo {
+    private LocalDate fecha;
+    private Map<Turno, Trabajador> asignaciones;
+
+    public DiaTrabajo(LocalDate fecha) {
+        this.fecha = fecha;
+        this.asignaciones = new HashMap<>();
+    }
+
+    public boolean asignar(Turno turno, Trabajador trabajador) {
+        if (asignaciones.containsKey(turno)) return false;
+        asignaciones.put(turno, trabajador);
+        return true;
+    }
+
+    public Trabajador getTrabajadorEnTurno(Turno turno) {
+        return asignaciones.get(turno);
+    }
+
+    public LocalDate getFecha() {
+        return fecha;
+    }
+
+    public Map<Turno, Trabajador> getAsignaciones() {
+        return asignaciones;
+    }
+
+    @Override
+    public String toString() {
+        return fecha + ": " + asignaciones;
+    }
+}

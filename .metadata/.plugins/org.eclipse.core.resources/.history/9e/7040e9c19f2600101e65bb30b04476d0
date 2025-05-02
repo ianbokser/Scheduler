@@ -1,0 +1,141 @@
+package ui;
+
+import model.*;
+import service.AsignadorHorarios;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+public class PantallaPrincipal extends JFrame {
+    private JTable tablaHorarios;
+    private DefaultTableModel tableModel;
+    private List<Trabajador> trabajadores;
+
+    public PantallaPrincipal() {
+        setTitle("Asignador de Horarios");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(900, 500);
+        setLayout(new BorderLayout());
+
+        inicializarTrabajadores();
+        inicializarMenu();
+
+        // Tabla
+        String[] columnas = {"Día", "Turno Mañana 1", "Turno Mañana 2", "Turno Tarde 1", "Turno Tarde 2"};
+        tableModel = new DefaultTableModel(columnas, 0);
+        tablaHorarios = new JTable(tableModel);
+        add(new JScrollPane(tablaHorarios), BorderLayout.CENTER);
+
+        setVisible(true);
+    }
+
+    private void inicializarMenu() {
+        JMenuBar menuBar = new JMenuBar();
+
+        // MENU ARCHIVO
+        JMenu menuArchivo = new JMenu("Archivo");
+        JMenuItem salirItem = new JMenuItem("Salir");
+        salirItem.addActionListener(e -> System.exit(0));
+        menuArchivo.add(salirItem);
+
+        // MENU TRABAJADORES
+        JMenu menuTrabajadores = new JMenu("Trabajadores");
+
+        JMenuItem agregarTrabajadorItem = new JMenuItem("Agregar trabajador");
+        agregarTrabajadorItem.addActionListener(e -> agregarTrabajador());
+
+        JMenuItem quitarTrabajadorItem = new JMenuItem("Quitar trabajador");
+        quitarTrabajadorItem.addActionListener(e -> quitarTrabajador());
+
+        JMenuItem verTrabajadoresItem = new JMenuItem("Ver lista de trabajadores");
+        verTrabajadoresItem.addActionListener(e -> verListaTrabajadores());
+
+        menuTrabajadores.add(agregarTrabajadorItem);
+        menuTrabajadores.add(quitarTrabajadorItem);
+        menuTrabajadores.add(verTrabajadoresItem);
+
+        // MENU CRONOGRAMA
+        JMenu menuCronograma = new JMenu("Cronograma");
+        JMenuItem crearCronogramaItem = new JMenuItem("Crear cronograma");
+        crearCronogramaItem.addActionListener(e -> generarSemana());
+        menuCronograma.add(crearCronogramaItem);
+
+        // AGREGAR MENUS AL MENU BAR
+        menuBar.add(menuArchivo);
+        menuBar.add(menuTrabajadores);
+        menuBar.add(menuCronograma);
+
+        setJMenuBar(menuBar);
+    }
+
+    private void inicializarTrabajadores() {
+        trabajadores = new ArrayList<>();
+        trabajadores.add(new Trabajador("Alice"));
+        trabajadores.add(new Trabajador("Bob"));
+        trabajadores.add(new Trabajador("Carlos"));
+        trabajadores.add(new Trabajador("Diana"));
+        trabajadores.add(new Trabajador("Eva"));
+        trabajadores.add(new Trabajador("Fede"));
+    }
+
+    private void agregarTrabajador() {
+        String nombre = JOptionPane.showInputDialog(this, "Nombre del nuevo trabajador:");
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            trabajadores.add(new Trabajador(nombre.trim()));
+            JOptionPane.showMessageDialog(this, "Trabajador agregado: " + nombre);
+        }
+    }
+
+    private void quitarTrabajador() {
+        if (trabajadores.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay trabajadores para quitar.");
+            return;
+        }
+        String[] nombres = trabajadores.stream().map(Trabajador::getNombre).toArray(String[]::new);
+        String seleccion = (String) JOptionPane.showInputDialog(this, "Seleccione trabajador a quitar:",
+                "Quitar trabajador", JOptionPane.PLAIN_MESSAGE, null, nombres, nombres[0]);
+        if (seleccion != null) {
+            trabajadores.removeIf(t -> t.getNombre().equals(seleccion));
+            JOptionPane.showMessageDialog(this, "Trabajador quitado: " + seleccion);
+        }
+    }
+
+    private void verListaTrabajadores() {
+        if (trabajadores.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No hay trabajadores cargados.");
+            return;
+        }
+        String lista = String.join("\n", trabajadores.stream().map(Trabajador::getNombre).toList());
+        JOptionPane.showMessageDialog(this, "Lista de trabajadores:\n" + lista);
+    }
+
+    private void generarSemana() {
+        tableModel.setRowCount(0); // Limpiar tabla antes de agregar nueva semana
+
+        LocalDate lunes = LocalDate.now().with(DayOfWeek.MONDAY);
+        Semana semana = new Semana(lunes);
+
+        AsignadorHorarios.asignarSemana(semana, trabajadores);
+
+        for (DiaTrabajo dia : semana.getDias()) {
+            String[] fila = new String[5];
+            fila[0] = dia.getFecha().getDayOfWeek().toString();
+
+            int index = 1;
+            for (Turno turno : new Turno[]{Turno.MANIANA, Turno.MANIANA, Turno.TARDE, Turno.TARDE}) {
+                Trabajador t = dia.getAsignaciones().get(turno);
+                fila[index++] = (t != null) ? t.getNombre() : "-";
+            }
+            tableModel.addRow(fila);
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(PantallaPrincipal::new);
+    }
+}

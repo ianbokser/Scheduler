@@ -1,0 +1,84 @@
+package ui;
+
+import model.*;
+import service.AsignadorHorarios;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+
+import data.Database;
+
+import java.awt.*;
+import java.sql.SQLException;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public class VentanaCronograma extends JFrame {
+    private JTable tabla;
+
+    public VentanaCronograma() {
+        setTitle("Cronograma");
+        setSize(700, 400);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        List<Trabajador> trabajadores;
+        try {
+            Database.conectar();
+            trabajadores = Database.obtenerTrabajadores();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al obtener trabajadores: " + e.getMessage());
+            trabajadores = List.of();
+        }
+
+        LocalDate hoy = LocalDate.now();
+        LocalDate proximoLunes = hoy.with(DayOfWeek.MONDAY);
+        if (hoy.getDayOfWeek().getValue() > DayOfWeek.MONDAY.getValue()) {
+            proximoLunes = proximoLunes.plusWeeks(1);
+        }
+
+        try {
+            if (Database.semanaYaExiste(proximoLunes)) {
+                JOptionPane.showMessageDialog(this, "Ya existe un cronograma guardado para la semana que comienza el " + proximoLunes);
+                dispose(); // Cierra la ventana sin generar nada
+                return;
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al verificar semana: " + e.getMessage());
+            dispose();
+            return;
+        }
+
+        Semana semana = new Semana(proximoLunes);
+        AsignadorHorarios.asignarSemana(semana, trabajadores);
+
+        try {
+            Database.guardarSemana(semana);
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al guardar la semana: " + e.getMessage());
+        }
+
+        String[] columnas = {"Día", "Mañana", "Tarde"};
+        DefaultTableModel modelo = new DefaultTableModel(columnas, 0);
+
+        for (DiaTrabajo dia : semana.getDias()) {
+            String diaStr = dia.getFecha().getDayOfWeek() + " " + dia.getFecha();
+
+            String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
+
+            modelo.addRow(new Object[]{diaStr, manana, tarde});
+        }
+
+        tabla = new JTable(modelo);
+        JScrollPane scrollPane = new JScrollPane(tabla);
+        add(scrollPane, BorderLayout.CENTER);
+
+        setVisible(true);
+    }
+
+}

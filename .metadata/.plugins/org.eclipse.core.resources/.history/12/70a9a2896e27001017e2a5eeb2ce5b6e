@@ -1,0 +1,93 @@
+package ui;
+
+import data.Database;
+import model.Semana;
+
+import javax.swing.*;
+import java.awt.*;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.util.List;
+
+public class VentanaSemanasGuardadas extends JFrame {
+    private JList<String> listaSemanas;
+    private DefaultListModel<String> modeloLista;
+    private List<Semana> semanas;
+
+    public VentanaSemanasGuardadas() {
+    	EstilosUI.aplicarEstilos();
+        setTitle("Semanas Guardadas");
+        setSize(300, 400);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        modeloLista = new DefaultListModel<>();
+        listaSemanas = new JList<>(modeloLista);
+        JScrollPane scrollPane = new JScrollPane(listaSemanas);
+        add(scrollPane, BorderLayout.CENTER);
+
+        JButton btnVer = new JButton("Ver Cronograma");
+        JButton btnEliminar = new JButton("Eliminar Semana");
+
+        btnVer.addActionListener(e -> verCronograma());
+        btnEliminar.addActionListener(e -> eliminarSemana());
+
+        JPanel panelBotones = new JPanel();
+        panelBotones.add(btnVer);
+        panelBotones.add(btnEliminar);
+
+        add(panelBotones, BorderLayout.SOUTH);
+
+
+        cargarSemanas();
+
+        setVisible(true);
+    }
+
+    private void cargarSemanas() {
+        try {
+            Database.conectar();
+            semanas = Database.obtenerSemanasGuardadas();
+            modeloLista.clear();
+            for (Semana s : semanas) {
+                LocalDate inicio = s.getFechaInicio();
+                modeloLista.addElement("Semana del " + inicio);
+            }
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Error al cargar semanas: " + e.getMessage());
+        }
+    }
+
+    private void verCronograma() {
+        int index = listaSemanas.getSelectedIndex();
+        if (index >= 0) {
+            Semana seleccionada = semanas.get(index);
+            new VentanaCronogramaGuardado(seleccionada);
+        } else {
+            JOptionPane.showMessageDialog(this, "Seleccione una semana.");
+        }
+    }
+    private void eliminarSemana() {
+        int index = listaSemanas.getSelectedIndex();
+        if (index >= 0) {
+            Semana seleccionada = semanas.get(index);
+            int confirmacion = JOptionPane.showConfirmDialog(this,
+                    "¿Está seguro que desea eliminar la semana del " + seleccionada.getFechaInicio() + "?",
+                    "Confirmar eliminación",
+                    JOptionPane.YES_NO_OPTION);
+            if (confirmacion == JOptionPane.YES_OPTION) {
+                try {
+                    Database.eliminarSemana(seleccionada.getFechaInicio());
+                    cargarSemanas();
+                    JOptionPane.showMessageDialog(this, "Semana eliminada exitosamente.");
+                } catch (SQLException e) {
+                    JOptionPane.showMessageDialog(this, "Error al eliminar semana: " + e.getMessage());
+                }
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Seleccione una semana para eliminar.");
+        }
+    }
+
+}

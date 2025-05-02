@@ -1,0 +1,72 @@
+package ui;
+
+import model.Trabajador;
+
+import javax.swing.*;
+
+import data.Database;
+
+import java.awt.*;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+
+public class EditorTrabajadores extends JDialog {
+    private DefaultListModel<String> listModel;
+    private JList<String> lista;
+    private List<Trabajador> trabajadores;
+
+    public EditorTrabajadores(JFrame parent) {
+        super(parent, "Editar Trabajadores", true);
+        setSize(300, 400);
+        setLocationRelativeTo(parent);
+        setLayout(new BorderLayout());
+
+        trabajadores = AppData.getTrabajadores(); // usar lista compartida
+
+        listModel = new DefaultListModel<>();
+        actualizarLista();
+
+        lista = new JList<>(listModel);
+        add(new JScrollPane(lista), BorderLayout.CENTER);
+
+        JPanel panelBotones = new JPanel();
+        JButton btnAgregar = new JButton("Agregar");
+        JButton btnQuitar = new JButton("Quitar");
+
+        btnAgregar.addActionListener(e -> agregarTrabajador());
+        btnQuitar.addActionListener(e -> quitarTrabajador());
+
+        panelBotones.add(btnAgregar);
+        panelBotones.add(btnQuitar);
+
+        add(panelBotones, BorderLayout.SOUTH);
+
+        setVisible(true);
+    }
+
+    private void actualizarLista() {
+        listModel.clear();
+        for (Trabajador t : trabajadores) {
+            listModel.addElement(t.getNombre());
+        }
+    }
+
+    private void agregarTrabajador() {
+        String nombre = JOptionPane.showInputDialog("Nombre del trabajador:");
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            Database.agregarTrabajador(nombre);
+			JOptionPane.showMessageDialog(null, "Trabajador agregado correctamente.");
+        }
+    }
+
+    private void quitarTrabajador() {
+        int index = lista.getSelectedIndex();
+        if (index >= 0) {
+            trabajadores.remove(index);
+            actualizarLista();
+        } else {
+            JOptionPane.showMessageDialog(this, "Seleccione un trabajador para quitar.");
+        }
+    }
+}

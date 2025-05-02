@@ -1,0 +1,77 @@
+package service;
+
+import model.*;
+
+import java.time.DayOfWeek;
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class AsignadorHorarios {
+
+	private static final Integer MAX_TURNOS_SEMANALES = null;
+
+	public void asignarSemana(Semana semana) {
+	    Random random = new Random();
+	    List<Trabajador> trabajadores = new ArrayList<>(this.trabajadores);
+	    Map<Trabajador, Integer> contadorDias = new HashMap<>();
+	    Map<Set<Trabajador>, Integer> contadorPares = new HashMap<>();
+
+	    // Inicializar contadores
+	    for (Trabajador trabajador : trabajadores) {
+	        contadorDias.put(trabajador, 0);
+	    }
+
+	    for (DiaTrabajo dia : semana.getDias()) {
+	        for (Turno turno : Turno.values()) {
+	            // Filtrar candidatos que no superen el maximo de turnos semanales
+	            List<Trabajador> candidatos = trabajadores.stream()
+	                .filter(t -> contadorDias.get(t) < MAX_TURNOS_SEMANALES)
+	                .collect(Collectors.toList());
+
+	            if (candidatos.size() < 2) {
+	                // Si quedan menos de 2 candidatos válidos, reiniciar la lista
+	                candidatos = new ArrayList<>(trabajadores);
+	            }
+
+	            // Generar todas las combinaciones de 2 trabajadores
+	            List<Set<Trabajador>> posiblesPares = new ArrayList<>();
+	            for (int i = 0; i < candidatos.size(); i++) {
+	                for (int j = i + 1; j < candidatos.size(); j++) {
+	                    Set<Trabajador> par = new HashSet<>(List.of(candidatos.get(i), candidatos.get(j)));
+	                    posiblesPares.add(par);
+	                }
+	            }
+
+	            // Encontrar el número mínimo de repeticiones entre las parejas
+	            OptionalInt minRepeticiones = posiblesPares.stream()
+	                .mapToInt(par -> contadorPares.getOrDefault(par, 0))
+	                .min();
+
+	            int minimoActual = minRepeticiones.orElse(0);
+
+	            // Filtrar solo las parejas que tengan el mínimo número de repeticiones
+	            List<Set<Trabajador>> mejoresPares = posiblesPares.stream()
+	                .filter(par -> contadorPares.getOrDefault(par, 0) == minimoActual)
+	                .collect(Collectors.toList());
+
+	            // Elegir una pareja al azar entre las mejores opciones
+	            Set<Trabajador> elegido = mejoresPares.get(random.nextInt(mejoresPares.size()));
+
+	            Iterator<Trabajador> it = elegido.iterator();
+	            Trabajador t1 = it.next();
+	            Trabajador t2 = it.next();
+
+	            // Asignar la pareja al turno
+	            dia.asignar(turno, t1);
+	            dia.asignar(turno, t2);
+
+	            // Actualizar contadores
+	            contadorDias.put(t1, contadorDias.get(t1) + 1);
+	            contadorDias.put(t2, contadorDias.get(t2) + 1);
+
+	            contadorPares.put(elegido, contadorPares.getOrDefault(elegido, 0) + 1);
+	        }
+	    }
+	}
+
+}

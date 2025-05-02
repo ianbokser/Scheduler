@@ -1,0 +1,27 @@
+package model;
+import service.AsignadorHorarios;
+
+import java.time.LocalDate;
+import java.util.*;
+
+public class Main {
+    public static void main(String[] args) {
+        List<Trabajador> trabajadores = new ArrayList<>();
+        trabajadores.add(new Trabajador("Alice"));
+        trabajadores.add(new Trabajador("Bob"));
+        trabajadores.add(new Trabajador("Carlos"));
+        trabajadores.add(new Trabajador("Diana"));
+        trabajadores.add(new Trabajador("Eva"));
+        trabajadores.add(new Trabajador("Fede"));
+
+        // Pedidos anticipados
+        trabajadores.get(1).pedirFranco(LocalDate.now().with(java.time.DayOfWeek.WEDNESDAY));
+        trabajadores.get(4).pedirFranco(LocalDate.now().with(java.time.DayOfWeek.SATURDAY));
+
+        Semana semana = new Semana(LocalDate.now().with(java.time.DayOfWeek.MONDAY));
+
+        AsignadorHorarios.asignarSemana(semana, trabajadores);
+
+        System.out.println(semana);
+    }
+}

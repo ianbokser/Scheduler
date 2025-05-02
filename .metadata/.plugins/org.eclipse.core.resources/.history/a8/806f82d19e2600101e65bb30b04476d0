@@ -1,0 +1,64 @@
+package ui;
+
+import model.*;
+import service.AsignadorHorarios;
+
+import javax.swing.*;
+import java.awt.*;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+
+public class PantallaPrincipal extends JFrame {
+    private JTextArea outputArea;
+    private List<Trabajador> trabajadores;
+
+    public PantallaPrincipal() {
+        setTitle("Asignador de Horarios");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(600, 400);
+        setLayout(new BorderLayout());
+
+        // Área de texto para mostrar resultados
+        outputArea = new JTextArea();
+        outputArea.setEditable(false);
+        add(new JScrollPane(outputArea), BorderLayout.CENTER);
+
+        // Botón para generar semana
+        JButton generarBtn = new JButton("Generar Semana");
+        generarBtn.addActionListener(e -> generarSemana());
+        add(generarBtn, BorderLayout.SOUTH);
+
+        inicializarTrabajadores();
+
+        setVisible(true);
+    }
+
+    private void inicializarTrabajadores() {
+        trabajadores = new ArrayList<>();
+        trabajadores.add(new Trabajador("Alice"));
+        trabajadores.add(new Trabajador("Bob"));
+        trabajadores.add(new Trabajador("Carlos"));
+        trabajadores.add(new Trabajador("Diana"));
+        trabajadores.add(new Trabajador("Eva"));
+        trabajadores.add(new Trabajador("Fede"));
+
+        // Ejemplo de pedidos de franco
+        trabajadores.get(1).pedirFranco(LocalDate.now().with(DayOfWeek.WEDNESDAY));
+        trabajadores.get(4).pedirFranco(LocalDate.now().with(DayOfWeek.SATURDAY));
+    }
+
+    private void generarSemana() {
+        LocalDate lunes = LocalDate.now().with(DayOfWeek.MONDAY);
+        Semana semana = new Semana(lunes);
+
+        AsignadorHorarios.asignarSemana(semana, trabajadores);
+
+        outputArea.setText(semana.toString());
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(PantallaPrincipal::new);
+    }
+}

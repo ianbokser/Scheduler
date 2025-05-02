@@ -1,0 +1,43 @@
+package ui;
+
+import model.*;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+public class VentanaCronogramaGuardado extends JFrame {
+    public VentanaCronogramaGuardado(Semana semana) {
+        setTitle("Cronograma guardado");
+        setSize(700, 400);
+        setLocationRelativeTo(null);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+        setLayout(new BorderLayout());
+
+        String[] columnas = {"Día", "Mañana", "Tarde"};
+        DefaultTableModel modelo = new DefaultTableModel(columnas, 0);
+
+        for (DiaTrabajo dia : semana.getDias()) {
+            String diaStr = dia.getFecha().getDayOfWeek() + " " + dia.getFecha();
+
+            String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
+
+            modelo.addRow(new Object[]{diaStr, manana, tarde});
+        }
+
+        JTable tabla = new JTable(modelo);
+        JScrollPane scrollPane = new JScrollPane(tabla);
+        add(scrollPane, BorderLayout.CENTER);
+
+        setVisible(true);
+    }
+
+    private String formatearTrabajadores(Set<Trabajador> trabajadores) {
+        return trabajadores.stream()
+                .map(Trabajador::getNombre)
+                .collect(Collectors.joining(", "));
+    }
+}

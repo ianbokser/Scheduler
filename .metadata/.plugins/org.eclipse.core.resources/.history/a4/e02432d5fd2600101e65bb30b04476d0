@@ -1,0 +1,69 @@
+package data;
+
+import model.Trabajador;
+
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Database {
+    private static final String DB_URL = "jdbc:h2:./trabajadoresDB";
+    private static Connection connection;
+
+    // Conectar e inicializar tabla
+    public static void conectar() throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            connection = DriverManager.getConnection(DB_URL, "sa", "");
+            inicializarTablas();
+        }
+    }
+
+    private static void inicializarTablas() throws SQLException {
+        String sql = """
+            CREATE TABLE IF NOT EXISTS trabajadores (
+                id IDENTITY PRIMARY KEY,
+                nombre VARCHAR(100) NOT NULL UNIQUE
+            );
+        """;
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(sql);
+        }
+    }
+
+    // Obtener todos los trabajadores
+    public static List<Trabajador> obtenerTrabajadores() throws SQLException {
+        List<Trabajador> lista = new ArrayList<>();
+        String sql = "SELECT * FROM trabajadores;";
+        try (Statement stmt = connection.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                lista.add(new Trabajador(rs.getString("nombre")));
+            }
+        }
+        return lista;
+    }
+
+    // Agregar trabajador
+    public static void agregarTrabajador(String nombre) throws SQLException {
+        String sql = "INSERT INTO trabajadores (nombre) VALUES (?);";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, nombre);
+            ps.executeUpdate();
+        }
+    }
+
+    // Eliminar trabajador
+    public static void eliminarTrabajador(String nombre) throws SQLException {
+        String sql = "DELETE FROM trabajadores WHERE nombre = ?;";
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setString(1, nombre);
+            ps.executeUpdate();
+        }
+    }
+
+    public static void cerrar() throws SQLException {
+        if (connection != null && !connection.isClosed()) {
+            connection.close();
+        }
+    }
+}

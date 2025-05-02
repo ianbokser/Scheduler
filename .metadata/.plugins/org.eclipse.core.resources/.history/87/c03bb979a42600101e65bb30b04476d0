@@ -1,0 +1,46 @@
+package ui;
+
+import javax.swing.*;
+import java.awt.*;
+
+public class PantallaPrincipal extends JFrame {
+    public PantallaPrincipal() {
+        setTitle("Asignador de Horarios");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(400, 300);
+        setLocationRelativeTo(null);
+        setLayout(new GridBagLayout());
+
+        JButton btnEditarTrabajadores = new JButton("Editar trabajadores");
+        JButton btnCrearCronograma = new JButton("Crear cronograma");
+
+        btnEditarTrabajadores.setPreferredSize(new Dimension(200, 50));
+        btnCrearCronograma.setPreferredSize(new Dimension(200, 50));
+
+        btnEditarTrabajadores.addActionListener(e -> abrirEditorTrabajadores());
+        btnCrearCronograma.addActionListener(e -> abrirCronograma());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(20, 0, 20, 0);
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        add(btnEditarTrabajadores, gbc);
+
+        gbc.gridy = 1;
+        add(btnCrearCronograma, gbc);
+
+        setVisible(true);
+    }
+
+    private void abrirEditorTrabajadores() {
+        SwingUtilities.invokeLater(() -> new EditorTrabajadores(this));
+    }
+
+    private void abrirCronograma() {
+        SwingUtilities.invokeLater(() -> new VentanaCronograma());
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(PantallaPrincipal::new);
+    }
+}

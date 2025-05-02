@@ -1,0 +1,91 @@
+package ui;
+
+import data.Database;
+import java.awt.*;
+import java.sql.SQLException;
+import java.util.List;
+import javax.swing.*;
+import model.Trabajador;
+
+public class EditorTrabajadores extends JDialog {
+    private DefaultListModel<String> listModel;
+    private JList<String> lista;
+
+    public EditorTrabajadores(JFrame parent) {
+        super(parent, "Editar Trabajadores", true);
+        Image icono = Toolkit.getDefaultToolkit().getImage(getClass().getResource("/images/Logo.jpg"));
+        setIconImage(icono);
+        setSize(500, 400);
+        setLocationRelativeTo(parent);
+
+        BackgroundPanel backgroundPanel = new BackgroundPanel();
+        backgroundPanel.setLayout(new BorderLayout());
+        setContentPane(backgroundPanel);
+
+        listModel = new DefaultListModel<>();
+        lista = new JList<>(listModel);
+        add(new JScrollPane(lista), BorderLayout.CENTER);
+
+        JPanel panelBotones = new JPanel();
+        JButton btnAgregar = EstilosUI.crearBotonModerno("Agregar");
+        JButton btnQuitar = EstilosUI.crearBotonModerno("Quitar");
+        panelBotones.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+
+        btnAgregar.addActionListener(e -> agregarTrabajador());
+        btnQuitar.addActionListener(e -> quitarTrabajador());
+
+        panelBotones.add(btnAgregar);
+        panelBotones.add(btnQuitar);
+
+        add(panelBotones, BorderLayout.SOUTH);
+
+        // Conectar y cargar lista
+        try {
+            Database.conectar();
+            cargarTrabajadores();
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error al conectar con la base de datos: " + ex.getMessage());
+        }
+
+        setVisible(true);
+    }
+
+    private void cargarTrabajadores() {
+        listModel.clear();
+        try {
+            List<Trabajador> trabajadores = Database.obtenerTrabajadores();
+            for (Trabajador t : trabajadores) {
+                listModel.addElement(t.getNombre());
+            }
+        } catch (SQLException ex) {
+            JOptionPane.showMessageDialog(this, "Error al obtener trabajadores: " + ex.getMessage());
+        }
+    }
+
+    private void agregarTrabajador() {
+        String nombre = JOptionPane.showInputDialog(this, "Nombre del nuevo trabajador:");
+        if (nombre != null && !nombre.trim().isEmpty()) {
+            try {
+                Database.agregarTrabajador(nombre.trim());
+                cargarTrabajadores();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Error al agregar trabajador: " + ex.getMessage());
+            }
+        }
+    }
+
+    private void quitarTrabajador() {
+        String nombre = lista.getSelectedValue();
+        if (nombre != null) {
+            try {
+                Database.eliminarTrabajador(nombre);
+                cargarTrabajadores();
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(this, "Error al eliminar trabajador: " + ex.getMessage());
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Seleccione un trabajador para quitar.");
+        }
+    }
+}
