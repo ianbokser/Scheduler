@@ -6,7 +6,9 @@ import java.sql.SQLException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.swing.*;
@@ -29,6 +31,13 @@ public class VentanaCronograma extends JFrame {
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
+        // Mostrar diálogo para seleccionar semana
+        LocalDate fechaSeleccionada = mostrarSelectorSemana();
+        if (fechaSeleccionada == null) {
+            dispose();
+            return;
+        }
+
         BackgroundPanel backgroundPanel = new BackgroundPanel();
         backgroundPanel.setLayout(new BorderLayout());
         setContentPane(backgroundPanel);
@@ -38,12 +47,7 @@ public class VentanaCronograma extends JFrame {
             Database.conectar();
             trabajadores = Database.obtenerTrabajadores();
 
-            LocalDate hoy = LocalDate.now();
-            LocalDate baseLunes = hoy.with(DayOfWeek.MONDAY);
-            LocalDate proximoLunes = hoy.getDayOfWeek().getValue() > DayOfWeek.MONDAY.getValue()
-                    ? baseLunes.plusWeeks(1)
-                    : baseLunes;
-
+            LocalDate proximoLunes = fechaSeleccionada.with(DayOfWeek.MONDAY);
             final LocalDate finalProximoLunes = proximoLunes;
 
             // Verificar si ya existe un cronograma para esta semana
@@ -86,12 +90,7 @@ public class VentanaCronograma extends JFrame {
             DefaultTableModel modelo = new DefaultTableModel(columnas, 0);
 
             for (DiaTrabajo dia : semana.getDias()) {
-                String diaStr = dia.getFecha().getDayOfWeek() + " " + dia.getFecha();
-
-                String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
-                String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
-
-                modelo.addRow(new Object[]{diaStr, manana, tarde});
+                modelo.addRow(crearFilaTabla(dia));
             }
 
             tabla = new JTable(modelo);
@@ -111,9 +110,65 @@ public class VentanaCronograma extends JFrame {
         }
     }
 
+    private LocalDate mostrarSelectorSemana() {
+        JPanel panel = new JPanel(new GridLayout(4, 1, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        
+        LocalDate hoy = LocalDate.now();
+        LocalDate baseLunes = hoy.with(DayOfWeek.MONDAY);
+        
+        JComboBox<String> semanaCombo = new JComboBox<>();
+        for (int i = 0; i < 8; i++) { // Permitir seleccionar hasta 8 semanas adelante
+            LocalDate lunes = baseLunes.plusWeeks(i);
+            LocalDate domingo = lunes.plusDays(6);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("d 'de' MMMM", new Locale("es", "ES"));
+            String texto = "Semana del " + lunes.format(formatter) + " al " + domingo.format(formatter);
+            semanaCombo.addItem(texto);
+        }
+        
+        JLabel lblInstrucciones = new JLabel("Seleccione la semana para crear el cronograma:");
+        lblInstrucciones.setHorizontalAlignment(JLabel.CENTER);
+        
+        panel.add(lblInstrucciones);
+        panel.add(semanaCombo);
+        
+        int result = JOptionPane.showConfirmDialog(
+            null, 
+            panel, 
+            "Seleccionar Semana",
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.PLAIN_MESSAGE
+        );
+        
+        if (result == JOptionPane.OK_OPTION) {
+            int semanaSeleccionada = semanaCombo.getSelectedIndex();
+            return baseLunes.plusWeeks(semanaSeleccionada);
+        }
+        
+        return null;
+    }
+
     private String formatearTrabajadores(Set<Trabajador> trabajadores) {
+        if (trabajadores == null || trabajadores.isEmpty()) {
+            return "-";
+        }
         return trabajadores.stream()
                 .map(Trabajador::getNombre)
                 .collect(Collectors.joining(", "));
+    }
+
+    private Object[] crearFilaTabla(DiaTrabajo dia) {
+        String diaStr = dia.getFecha().getDayOfWeek().getDisplayName(TextStyle.FULL, new Locale("es", "ES")) +
+                       " " + dia.getFecha().format(DateTimeFormatter.ofPattern("d/M"));
+        
+        if (dia.getFecha().getDayOfWeek() == DayOfWeek.SUNDAY) {
+            // Para domingo, mostrar trabajadores solo en la primera columna
+            String trabajadores = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            return new Object[]{diaStr, trabajadores, "-"};
+        } else {
+            String manana = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.MANIANA));
+            String tarde = formatearTrabajadores(dia.getTrabajadoresEnTurno(Turno.TARDE));
+            return new Object[]{diaStr, manana, tarde};
+        }
     }
 }
