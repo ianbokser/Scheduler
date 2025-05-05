@@ -1,0 +1,11 @@
+/**
+ * 
+ */
+module Schedulr {
+    requires java.desktop;
+    requires java.sql;
+
+    opens ui;  // Allows reflection for UI components
+    opens model;  // Allows reflection for model classes if needed
+    opens data;  // Allows reflection for database operations
+}

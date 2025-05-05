@@ -1,0 +1,124 @@
+package service;
+
+import data.Database;
+import java.sql.SQLException;
+import java.time.DayOfWeek;
+import java.util.*;
+import java.util.stream.Collectors;
+import model.*;
+
+public class AsignadorHorarios {
+    public static void asignarSemana(Semana semana, List<Trabajador> trabajadores) {
+        // Inicialización de estructuras
+        Map<Trabajador, Integer> diasTrabajados = new HashMap<>();
+        Map<Set<Trabajador>, Integer> parejasFormadas = new HashMap<>();
+        Set<Trabajador> trabajadoresDomingoAnterior = new HashSet<>();
+        
+        // Obtener trabajadores del domingo anterior
+        Semana semanaAnterior = obtenerSemanaAnterior(semana, trabajadores);
+        if (semanaAnterior != null) {
+            DiaTrabajo domingoAnterior = semanaAnterior.getDias().stream()
+                .filter(d -> d.getFecha().getDayOfWeek() == DayOfWeek.SUNDAY)
+                .findFirst()
+                .orElse(null);
+            
+            if (domingoAnterior != null) {
+                trabajadoresDomingoAnterior.addAll(domingoAnterior.getTrabajadoresDelDia());
+            }
+        }
+
+        // Inicializar contadores
+        trabajadores.forEach(t -> diasTrabajados.put(t, 0));
+
+        // Ordenar días de lunes a domingo
+        List<DiaTrabajo> diasOrdenados = semana.getDias().stream()
+            .sorted(Comparator.comparing(d -> d.getFecha().getDayOfWeek()))
+            .collect(Collectors.toList());
+
+        // Procesar cada día
+        for (DiaTrabajo dia : diasOrdenados) {
+            asignarTrabajadoresDia(dia, trabajadores, diasTrabajados, 
+                parejasFormadas, trabajadoresDomingoAnterior);
+        }
+
+        // Guardar la semana en el historial de cada trabajador
+        trabajadores.forEach(t -> t.agregarSemana(semana));
+        
+        try {
+            Database.guardarSemana(semana);
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static void asignarTrabajadoresDia(DiaTrabajo dia, List<Trabajador> trabajadores,
+            Map<Trabajador, Integer> diasTrabajados, Map<Set<Trabajador>, Integer> parejasFormadas,
+            Set<Trabajador> trabajadoresDomingoAnterior) {
+        
+        DayOfWeek diaSemana = dia.getFecha().getDayOfWeek();
+        boolean esLunes = diaSemana == DayOfWeek.MONDAY;
+        boolean esDomingo = diaSemana == DayOfWeek.SUNDAY;
+
+        List<Trabajador> disponibles = trabajadores.stream()
+        	    .filter(t -> !t.pidioFranco(dia.getFecha()))
+        	    .filter(t -> diasTrabajados.get(t) < 6)
+        	    .collect(Collectors.toList());
+
+        	if (esLunes) {
+        	    disponibles.removeAll(trabajadoresDomingoAnterior);
+        	}
+        // Determinar turnos a asignar
+        List<Turno> turnos = esDomingo ? 
+            Collections.singletonList(Turno.MANIANA) : 
+            Arrays.asList(Turno.MANIANA, Turno.TARDE);
+
+        // Asignar cada turno
+        for (Turno turno : turnos) {
+            asignarTurno(dia, turno, disponibles, diasTrabajados, parejasFormadas);
+        }
+    }
+
+    private static void asignarTurno(DiaTrabajo dia, Turno turno, List<Trabajador> disponibles,
+            Map<Trabajador, Integer> diasTrabajados, Map<Set<Trabajador>, Integer> parejasFormadas) {
+        
+        // Filtrar trabajadores ya asignados en el día
+        List<Trabajador> trabajadoresParaTurno = disponibles.stream()
+            .filter(t -> !dia.estaAsignadoEnDia(t))
+            .collect(Collectors.toList());
+
+        if (trabajadoresParaTurno.size() < 2) return;
+
+        // Generar todas las posibles parejas
+        List<Set<Trabajador>> parejasPosibles = new ArrayList<>();
+        for (int i = 0; i < trabajadoresParaTurno.size() - 1; i++) {
+            for (int j = i + 1; j < trabajadoresParaTurno.size(); j++) {
+                Set<Trabajador> pareja = new HashSet<>(Arrays.asList(
+                    trabajadoresParaTurno.get(i), 
+                    trabajadoresParaTurno.get(j)
+                ));
+                parejasPosibles.add(pareja);
+            }
+        }
+
+        // Ordenar parejas por frecuencia de uso
+        parejasPosibles.sort(Comparator.comparingInt(p -> parejasFormadas.getOrDefault(p, 0)));
+
+        // Seleccionar la mejor pareja
+        if (!parejasPosibles.isEmpty()) {
+            Set<Trabajador> pareja = parejasPosibles.get(0);
+            for (Trabajador t : pareja) {
+                dia.asignar(turno, t);
+                diasTrabajados.put(t, diasTrabajados.get(t) + 1);
+            }
+            parejasFormadas.merge(pareja, 1, Integer::sum);
+        }
+    }
+
+    private static Semana obtenerSemanaAnterior(Semana semana, List<Trabajador> trabajadores) {
+        return trabajadores.stream()
+            .flatMap(t -> t.getHistorialSemanas().stream())
+            .filter(s -> s.getLunes().isBefore(semana.getLunes()))
+            .max(Comparator.comparing(Semana::getLunes))
+            .orElse(null);
+    }
+}

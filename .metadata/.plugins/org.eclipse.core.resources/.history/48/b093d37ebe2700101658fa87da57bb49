@@ -1,0 +1,97 @@
+package test;
+
+import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
+
+import java.time.LocalDate;
+import java.time.DayOfWeek;
+import java.util.*;
+import model.*;
+import service.AsignadorHorarios;
+
+public class AsignadorHorariosTest {
+    
+    @Test
+    public void testDomingoLunesRestricciones() {
+        // Crear una lista de trabajadores de prueba
+        List<Trabajador> trabajadores = Arrays.asList(
+            new Trabajador("Test1"),
+            new Trabajador("Test2"),
+            new Trabajador("Test3"),
+            new Trabajador("Test4"),
+            new Trabajador("Test5"),
+            new Trabajador("Test6")
+        );
+
+        // Crear una semana empezando en lunes
+        LocalDate lunes = LocalDate.now().with(DayOfWeek.MONDAY);
+        Semana semana = new Semana(lunes);
+
+        // Asignar horarios
+        AsignadorHorarios.asignarSemana(semana, trabajadores);
+
+        // Obtener el domingo y el lunes siguiente
+        DiaTrabajo domingo = semana.getDias().get(6); // último día de la semana
+        
+        // Obtener trabajadores que trabajaron el domingo
+        Set<Trabajador> trabajadoresDomingo = domingo.getTrabajadoresDelDia();
+        
+        // Para cada día siguiente (en este caso solo lunes), verificar que ningún trabajador del domingo esté asignado
+        for (DiaTrabajo dia : semana.getDias()) {
+            if (dia.getFecha().getDayOfWeek() == DayOfWeek.MONDAY) {
+                Set<Trabajador> trabajadoresLunes = dia.getTrabajadoresDelDia();
+                
+                // Verificar que no hay intersección entre los conjuntos
+                Set<Trabajador> interseccion = new HashSet<>(trabajadoresDomingo);
+                interseccion.retainAll(trabajadoresLunes);
+                
+                assertTrue("Hay trabajadores que trabajan domingo y lunes: " + interseccion, 
+                         interseccion.isEmpty());
+                
+                // Imprimir información para debug
+                System.out.println("Trabajadores domingo: " + 
+                    trabajadoresDomingo.stream()
+                        .map(Trabajador::getNombre)
+                        .reduce("", (a, b) -> a + ", " + b));
+                        
+                System.out.println("Trabajadores lunes: " + 
+                    trabajadoresLunes.stream()
+                        .map(Trabajador::getNombre)
+                        .reduce("", (a, b) -> a + ", " + b));
+            }
+        }
+    }
+    
+    @Test
+    public void testMultiplesSemanas() {
+        List<Trabajador> trabajadores = Arrays.asList(
+            new Trabajador("Test1"),
+            new Trabajador("Test2"),
+            new Trabajador("Test3"),
+            new Trabajador("Test4"),
+            new Trabajador("Test5"),
+            new Trabajador("Test6")
+        );
+
+        LocalDate inicioSemana1 = LocalDate.now().with(DayOfWeek.MONDAY);
+        Semana semana1 = new Semana(inicioSemana1);
+        AsignadorHorarios.asignarSemana(semana1, trabajadores);
+
+        LocalDate inicioSemana2 = inicioSemana1.plusWeeks(1);
+        Semana semana2 = new Semana(inicioSemana2);
+        AsignadorHorarios.asignarSemana(semana2, trabajadores);
+
+        // Verificar la restricción entre el domingo de la primera semana y el lunes de la segunda
+        DiaTrabajo domingo = semana1.getDias().get(6);
+        DiaTrabajo lunesSiguiente = semana2.getDias().get(0);
+
+        Set<Trabajador> trabajadoresDomingo = domingo.getTrabajadoresDelDia();
+        Set<Trabajador> trabajadoresLunes = lunesSiguiente.getTrabajadoresDelDia();
+
+        Set<Trabajador> interseccion = new HashSet<>(trabajadoresDomingo);
+        interseccion.retainAll(trabajadoresLunes);
+
+        assertTrue("Hay trabajadores que trabajan domingo y lunes entre semanas: " + interseccion,
+                 interseccion.isEmpty());
+    }
+}

@@ -1,7 +1,7 @@
 package ui;
 
-import javax.swing.*;
 import java.awt.*;
+import javax.swing.*;
 
 public class EstilosUI {
     public static void aplicarEstilos() {
@@ -26,6 +26,27 @@ public class EstilosUI {
         boton.setFont(new Font("SansSerif", Font.BOLD, 14));
         boton.setPreferredSize(new Dimension(200, 50));
         boton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        return boton;
+    }
+
+    public static JButton crearBotonNav(String texto) {
+        JButton boton = new JButton(texto);
+        boton.setBackground(new Color(0, 0, 0, 0));
+        boton.setForeground(Color.WHITE);
+        boton.setFocusPainted(false);
+        boton.setFont(new Font("SansSerif", Font.BOLD, 14));
+        boton.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        boton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        boton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                boton.setBackground(new Color(255, 255, 255, 30));
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                boton.setBackground(new Color(0, 0, 0, 0));
+            }
+        });
+        
         return boton;
     }
 }
